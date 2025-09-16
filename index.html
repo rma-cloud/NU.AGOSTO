@@ -100,11 +100,6 @@
                             </ul>
                         </div>
                     </div>
-                     <div class="kpi-card p-6 rounded-lg text-center">
-                        <h3 class="text-xl font-semibold text-gray-300">Prazos Concluídos</h3>
-                        <p class="text-4xl font-bold text-violet-400 mt-2">2891</p>
-                        <p class="text-gray-400">Total no mês</p>
-                    </div>
                 </div>
             </div>
 
@@ -113,7 +108,16 @@
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <div class="kpi-card p-6 rounded-lg">
                         <h3 class="text-2xl font-semibold text-center mb-4 text-violet-300">Encerramentos e Acordos</h3>
-                        <div class="chart-wrapper"><canvas id="chartEncerramentos"></canvas></div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <h4 class="text-center text-gray-400 font-medium">Encerramentos</h4>
+                                <div class="chart-wrapper mt-2"><canvas id="chartEncerramentosOnly"></canvas></div>
+                            </div>
+                            <div>
+                                <h4 class="text-center text-gray-400 font-medium">Taxa de Acordos</h4>
+                                <div class="chart-wrapper mt-2"><canvas id="chartAcordosOnly"></canvas></div>
+                            </div>
+                        </div>
                     </div>
                     <div class="kpi-card p-6 rounded-lg">
                         <h3 class="text-2xl font-semibold text-center mb-4 text-violet-300">Ticket Médio (TKM)</h3>
@@ -121,7 +125,14 @@
                     </div>
                     <div class="kpi-card p-6 rounded-lg lg:col-span-2">
                         <h3 class="text-2xl font-semibold text-center mb-4 text-violet-300">Tempo Médio de Encerramento</h3>
-                        <div class="chart-wrapper"><canvas id="chartTempoMedio"></canvas></div>
+                        <div class="flex flex-col md:flex-row items-center gap-6">
+                            <div class="chart-wrapper flex-grow w-full md:w-2/3"><canvas id="chartTempoMedio"></canvas></div>
+                            <div class="text-center md:text-left">
+                                <p class="text-gray-400">Resultado Positivo</p>
+                                <p class="text-3xl font-bold text-green-400 mt-1">-0.6 meses</p>
+                                <p class="text-gray-400 text-sm mt-2">Abaixo da meta de 13.5 meses (mais rápido).</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -272,10 +283,26 @@
             Chart.defaults.borderColor = '#475569'; // border-slate-600
             
             // --- Função para criar gráficos ---
-            const createBarChart = (ctx, labels, dataMeta, dataResultado, labelMeta, labelResultado, isCurrency = false, isPercent = false, reverseColors = false) => {
+            const createBarChart = (ctx, labels, dataMeta, dataResultado, labelMeta, labelResultado, isCurrency = false, isPercent = false, higherIsBetter = []) => {
                 const colorMeta = 'rgba(255, 255, 255, 0.3)';
-                const colorResultado = 'rgba(138, 5, 190, 0.7)';
-                const colorResultadoHover = 'rgba(138, 5, 190, 1)';
+                const colorGood = 'rgba(34, 197, 94, 0.7)'; // green-600
+                const colorBad = 'rgba(239, 68, 68, 0.7)'; // red-500
+                const colorGoodHover = 'rgba(22, 163, 74, 1)'; // green-700
+                const colorBadHover = 'rgba(220, 38, 38, 1)'; // red-600
+
+                const backgroundColors = dataResultado.map((res, i) => {
+                    if (higherIsBetter.length <= i) return colorGood;
+                    const meta = dataMeta[i];
+                    const isGood = higherIsBetter[i] ? res >= meta : res <= meta;
+                    return isGood ? colorGood : colorBad;
+                });
+
+                const borderColors = dataResultado.map((res, i) => {
+                    if (higherIsBetter.length <= i) return colorGoodHover;
+                    const meta = dataMeta[i];
+                    const isGood = higherIsBetter[i] ? res >= meta : res <= meta;
+                    return isGood ? colorGoodHover : colorBadHover;
+                });
 
                 new Chart(ctx, {
                     type: 'bar',
@@ -293,8 +320,8 @@
                             {
                                 label: labelResultado,
                                 data: dataResultado,
-                                backgroundColor: reverseColors ? '#d97706' : colorResultado, // Laranja se for "pior", roxo se for "melhor"
-                                borderColor: reverseColors ? '#b45309' : colorResultadoHover,
+                                backgroundColor: backgroundColors,
+                                borderColor: borderColors,
                                 borderWidth: 1,
                                 barPercentage: 0.6,
                             }
@@ -339,14 +366,17 @@
             };
 
             // --- Gráficos da Aba "Metas Cliente" ---
-            const ctxEncerramentos = document.getElementById('chartEncerramentos').getContext('2d');
-            createBarChart(ctxEncerramentos, ['Encerramentos', 'Acordos (%)'], [800, 6.2], [1120, 7.9], 'Meta', 'Resultado');
+            const ctxEncerramentosOnly = document.getElementById('chartEncerramentosOnly').getContext('2d');
+            createBarChart(ctxEncerramentosOnly, ['Encerramentos'], [800], [1120], 'Meta', 'Resultado', false, false, [true]);
+
+            const ctxAcordosOnly = document.getElementById('chartAcordosOnly').getContext('2d');
+            createBarChart(ctxAcordosOnly, ['Acordos (%)'], [6.2], [7.9], 'Meta', 'Resultado', false, true, [true]);
 
             const ctxTKM = document.getElementById('chartTKM').getContext('2d');
-            createBarChart(ctxTKM, ['TKM Norte', 'TKM Geral Acordo'], [3800, 2214], [6020, 1697], 'Meta', 'Resultado', true, false);
+            createBarChart(ctxTKM, ['TKM Norte Acordo', 'TKM Geral Acordo'], [3800, 2214], [6020, 1697], 'Meta', 'Resultado', true, false, [true, true]);
 
             const ctxTempoMedio = document.getElementById('chartTempoMedio').getContext('2d');
-            createBarChart(ctxTempoMedio, ['Tempo Médio (meses)'], [13.5], [12.9], 'Meta', 'Resultado', false, false, true);
+            createBarChart(ctxTempoMedio, ['Tempo Médio (meses)'], [13.5], [12.9], 'Meta', 'Resultado', false, false, [false]);
 
             // --- Gráfico da Aba "Produtividade" ---
             const ctxProdutividadeMedia = document.getElementById('chartProdutividadeMedia').getContext('2d');
@@ -416,6 +446,11 @@
 
 </body>
 </html>
+
+
+
+
+
 
 
 
